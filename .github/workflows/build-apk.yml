@@ -1,58 +1,58 @@
 name: Build Konglong Yingshi APK
 
 on:
-push:
-workflow_dispatch:
+  push:
+  workflow_dispatch:
 
 jobs:
-build:
-runs-on: ubuntu-latest
+  build:
+    runs-on: ubuntu-latest
 
-steps:
-  - name: Checkout repository
-    uses: actions/checkout@v4
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
 
-  - name: Set up Java
-    uses: actions/setup-java@v4
-    with:
-      distribution: temurin
-      java-version: '17'
+      - name: Set up Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
 
-  - name: Set up Gradle
-    uses: gradle/actions/setup-gradle@v4
-    with:
-      gradle-version: '8.9'
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.9'
 
-  - name: Extract Android project
-    run: |
-      ZIP_FILE=$(find . -maxdepth 1 -type f -name '*.zip' | head -n 1)
-      if [ -z "$ZIP_FILE" ]; then
-        echo "找不到 ZIP 项目文件"
-        exit 1
-      fi
-      mkdir extracted
-      unzip -q "$ZIP_FILE" -d extracted
-      PROJECT_DIR=$(find extracted -name settings.gradle -type f -printf '%h\n' | head -n 1)
-      if [ -z "$PROJECT_DIR" ]; then
-        echo "ZIP 内找不到 Android 项目"
-        exit 1
-      fi
-      echo "PROJECT_DIR=$PROJECT_DIR" >> "$GITHUB_ENV"
+      - name: Extract Android project
+        run: |
+          ZIP_FILE=$(find . -maxdepth 1 -type f -name '*.zip' | head -n 1)
+          if [ -z "$ZIP_FILE" ]; then
+            echo "Project ZIP not found"
+            exit 1
+          fi
+          mkdir extracted
+          unzip -q "$ZIP_FILE" -d extracted
+          PROJECT_DIR=$(find extracted -name settings.gradle -type f -printf '%h\n' | head -n 1)
+          if [ -z "$PROJECT_DIR" ]; then
+            echo "Android project not found"
+            exit 1
+          fi
+          echo "PROJECT_DIR=$PROJECT_DIR" >> "$GITHUB_ENV"
 
-  - name: Build APK
-    run: gradle -p "$PROJECT_DIR" assembleDebug
+      - name: Build APK
+        run: gradle -p "$PROJECT_DIR" assembleDebug
 
-  - name: Prepare APK
-    run: |
-      APK=$(find "$PROJECT_DIR" -path '*/build/outputs/apk/debug/*.apk' -type f | head -n 1)
-      if [ -z "$APK" ]; then
-        echo "没有找到 APK"
-        exit 1
-      fi
-      cp "$APK" app-debug.apk
+      - name: Find APK
+        run: |
+          APK=$(find "$PROJECT_DIR" -path '*/build/outputs/apk/debug/*.apk' -type f | head -n 1)
+          if [ -z "$APK" ]; then
+            echo "APK not found"
+            exit 1
+          fi
+          cp "$APK" app-debug.apk
 
-  - name: Upload APK
-    uses: actions/upload-artifact@v4
-    with:
-      name: konglong-yingshi-apk
-      path: app-debug.apk
+      - name: Upload APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: konglong-yingshi-apk
+          path: app-debug.apk
