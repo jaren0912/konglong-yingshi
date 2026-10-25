@@ -7,6 +7,7 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
+
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -37,6 +38,35 @@ jobs:
             exit 1
           fi
           echo "PROJECT_DIR=$PROJECT_DIR" >> "$GITHUB_ENV"
+
+      - name: Fix Java and Kotlin versions
+        run: |
+          python3 - "$PROJECT_DIR/app/build.gradle" <<'PY'
+          from pathlib import Path
+          import sys
+
+          p = Path(sys.argv[1])
+          s = p.read_text()
+
+          if 'kotlinOptions' not in s:
+              s = s.replace(
+                  '    defaultConfig {',
+                  """    compileOptions {
+                  sourceCompatibility JavaVersion.VERSION_17
+                  targetCompatibility JavaVersion.VERSION_17
+              }
+
+              kotlinOptions {
+                  jvmTarget = '17'
+              }
+
+              defaultConfig {""",
+                  1
+              )
+
+          p.write_text(s)
+          print("Java/Kotlin target configuration updated")
+          PY
 
       - name: Build APK
         run: gradle -p "$PROJECT_DIR" assembleDebug
