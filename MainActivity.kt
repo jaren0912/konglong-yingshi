@@ -6,36 +6,39 @@ import android.graphics.Color
 import android.graphics.Typeface
 import android.view.Gravity
 import android.view.KeyEvent
-import android.view.View
 import android.view.ViewGroup
 import android.widget.*
 import android.text.InputType
+import android.content.res.ColorStateList
 import androidx.media3.common.MediaItem
-import androidx.media3.common.Player
 import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.ui.PlayerView
-import org.json.JSONObject
-import org.json.JSONArray
 import java.net.HttpURLConnection
 import java.net.URL
-import java.io.BufferedReader
-import java.io.InputStreamReader
 import java.util.concurrent.Executors
 
-data class Channel(val name: String, val url: String, val group: String = "全部频道")
+data class Channel(
+    val name: String,
+    val url: String,
+    val group: String = "全部频道"
+)
 
 class MainActivity : Activity() {
-    private val bg = Color.rgb(7, 27, 45)
-    private val panel = Color.rgb(14, 54, 76)
-    private val teal = Color.rgb(22, 196, 190)
-    private val pale = Color.rgb(225, 249, 247)
+
+    private val black = Color.rgb(12, 12, 14)
+    private val gold = Color.rgb(218, 181, 105)
+    private val card = Color.rgb(35, 32, 27)
+    private val cream = Color.rgb(248, 239, 218)
+    private val gray = Color.rgb(175, 175, 175)
+
     private val worker = Executors.newSingleThreadExecutor()
-    private val liveSourceDefault = "http://bit.ly/jaren919"
-    private val vodSourceDefault = "http://bit.ly/jaren22"
-    private var liveSource = liveSourceDefault
-    private var vodSource = vodSourceDefault
+
+    private var liveSource = "http://bit.ly/jaren919"
+    private var vodSource = "http://bit.ly/jaren22"
+
     private var channels: List<Channel> = emptyList()
     private var player: ExoPlayer? = null
+
     private lateinit var root: LinearLayout
     private lateinit var content: LinearLayout
     private lateinit var status: TextView
@@ -43,6 +46,8 @@ class MainActivity : Activity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        window.statusBarColor = black
+        window.navigationBarColor = black
         buildShell()
         showHome()
     }
@@ -50,335 +55,431 @@ class MainActivity : Activity() {
     private fun buildShell() {
         root = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
-            setPadding(28, 20, 28, 20)
-            setBackgroundColor(bg)
+            setBackgroundColor(black)
         }
+
         val header = LinearLayout(this).apply {
-            orientation = LinearLayout.HORIZONTAL
-            gravity = Gravity.CENTER_VERTICAL
+            orientation = LinearLayout.VERTICAL
+            setPadding(22, 14, 22, 12)
+            setBackgroundColor(black)
         }
-        val brand = TextView(this).apply {
-            text = "🦖 恐龙影视"
+
+        header.addView(TextView(this).apply {
+            text = "🦖  恐龙影视"
             textSize = 28f
-            setTextColor(Color.WHITE)
             typeface = Typeface.DEFAULT_BOLD
-            setPadding(4, 8, 28, 8)
+            setTextColor(gold)
+        })
+
+        header.addView(TextView(this).apply {
+            text = "KONG LONG CINEMA"
+            textSize = 11f
+            letterSpacing = 0.2f
+            setTextColor(gray)
+        })
+
+        root.addView(header)
+
+        val nav = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            setBackgroundColor(card)
         }
-        header.addView(brand)
-        addNavButton(header, "首页") { showHome() }
-        addNavButton(header, "电视直播") { loadLive() }
-        addNavButton(header, "电影点播") { loadVod("电影") }
-        addNavButton(header, "电视剧") { loadVod("电视剧") }
-        addNavButton(header, "设置") { showSettings() }
-        root.addView(header, LinearLayout.LayoutParams(-1, -2))
+
+        addNavButton(nav, "首页") { showHome() }
+        addNavButton(nav, "直播") { loadLive() }
+        addNavButton(nav, "点播") { loadVod("全部") }
+        addNavButton(nav, "设置") { showSettings() }
+
+        root.addView(nav)
+
         status = TextView(this).apply {
             text = "欢迎使用恐龙影视"
-            textSize = 13f
-            setTextColor(Color.LTGRAY)
-            setPadding(6, 6, 6, 10)
+            textSize = 12f
+            setTextColor(gold)
+            setPadding(14, 8, 14, 8)
         }
+
         root.addView(status)
+
         content = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
-            setPadding(8, 8, 8, 8)
+            setPadding(12, 8, 12, 8)
+            setBackgroundColor(black)
         }
-        root.addView(content, LinearLayout.LayoutParams(-1, 0, 1f))
+
+        root.addView(
+            content,
+            LinearLayout.LayoutParams(-1, 0, 1f)
+        )
+
         setContentView(root)
     }
 
-    private fun addNavButton(parent: LinearLayout, label: String, action: () -> Unit) {
-        val b = Button(this).apply {
+    private fun addNavButton(
+        row: LinearLayout,
+        label: String,
+        action: () -> Unit
+    ) {
+        val button = Button(this).apply {
             text = label
+            textSize = 14f
             isAllCaps = false
-            textSize = 15f
-            setTextColor(Color.WHITE)
-            setBackgroundTintList(android.content.res.ColorStateList.valueOf(panel))
-            setOnClickListener { action() }
+            setTextColor(gold)
+            setBackgroundTintList(ColorStateList.valueOf(card))
             isFocusable = true
-            isFocusableInTouchMode = true
+            setOnClickListener { action() }
         }
-        val lp = LinearLayout.LayoutParams(-2, 54)
-        lp.setMargins(5, 0, 5, 0)
-        parent.addView(b, lp)
+
+        row.addView(button, LinearLayout.LayoutParams(0, 48, 1f))
+    }
+
+    private fun showHome() {
+        clearContent()
+        status.text = "WELCOME TO KONG LONG CINEMA"
+
+        val scroll = ScrollView(this)
+
+        val page = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(8, 10, 8, 20)
+        }
+
+        page.addView(TextView(this).apply {
+            text = "欢迎来到\n恐龙影视"
+            textSize = 32f
+            typeface = Typeface.DEFAULT_BOLD
+            setTextColor(gold)
+            setPadding(8, 16, 8, 6)
+        })
+
+        page.addView(TextView(this).apply {
+            text = "YOUR PRIVATE CINEMA"
+            textSize = 12f
+            letterSpacing = 0.2f
+            setTextColor(gray)
+            setPadding(10, 0, 8, 20)
+        })
+
+        val hero = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(24, 24, 24, 24)
+            setBackgroundColor(card)
+        }
+
+        hero.addView(TextView(this).apply {
+            text = "✦  PREMIUM CINEMA"
+            textSize = 13f
+            setTextColor(gold)
+        })
+
+        hero.addView(TextView(this).apply {
+            text = "好电影，\n值得大屏欣赏"
+            textSize = 30f
+            typeface = Typeface.DEFAULT_BOLD
+            setTextColor(cream)
+            setPadding(0, 18, 0, 12)
+        })
+
+        hero.addView(TextView(this).apply {
+            text = "电影 · 电视剧 · 动漫 · 综艺 · 直播"
+            textSize = 14f
+            setTextColor(gray)
+        })
+
+        hero.addView(makeButton("▶  浏览点播", gold, Color.BLACK) {
+            loadVod("全部")
+        }, LinearLayout.LayoutParams(-1, 54).apply {
+            setMargins(0, 22, 0, 0)
+        })
+
+        hero.addView(makeButton("📺  进入电视直播", card, cream) {
+            loadLive()
+        }, LinearLayout.LayoutParams(-1, 54).apply {
+            setMargins(0, 10, 0, 0)
+        })
+
+        page.addView(hero, LinearLayout.LayoutParams(-1, -2).apply {
+            setMargins(0, 4, 0, 20)
+        })
+
+        page.addView(TextView(this).apply {
+            text = "精选频道  /  EXPLORE"
+            textSize = 19f
+            typeface = Typeface.DEFAULT_BOLD
+            setTextColor(gold)
+            setPadding(4, 8, 4, 12)
+        })
+
+        addCategoryRow(page, "📺  电视直播", "🎬  电影点播",
+            { loadLive() }, { loadVod("电影") })
+
+        addCategoryRow(page, "📽️  电视剧", "🎌  动漫",
+            { loadVod("电视剧") }, { loadVod("动漫") })
+
+        addCategoryRow(page, "🎤  综艺节目", "⚙️  资源设置",
+            { loadVod("综艺") }, { showSettings() })
+
+        page.addView(TextView(this).apply {
+            text = "KONG LONG CINEMA  •  BLACK & GOLD"
+            textSize = 11f
+            gravity = Gravity.CENTER
+            setTextColor(Color.GRAY)
+            setPadding(8, 26, 8, 12)
+        })
+
+        scroll.addView(page)
+        content.addView(scroll, LinearLayout.LayoutParams(-1, -1))
+    }
+
+    private fun addCategoryRow(
+        page: LinearLayout,
+        first: String,
+        second: String,
+        action1: () -> Unit,
+        action2: () -> Unit
+    ) {
+        val row = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+        }
+
+        row.addView(
+            makeButton(first, card, cream, action1),
+            LinearLayout.LayoutParams(0, 76, 1f).apply {
+                setMargins(4, 4, 4, 4)
+            }
+        )
+
+        row.addView(
+            makeButton(second, card, cream, action2),
+            LinearLayout.LayoutParams(0, 76, 1f).apply {
+                setMargins(4, 4, 4, 4)
+            }
+        )
+
+        page.addView(row)
+    }
+
+    private fun makeButton(
+        label: String,
+        background: Int,
+        foreground: Int,
+        action: () -> Unit
+    ): Button {
+        return Button(this).apply {
+            text = label
+            textSize = 15f
+            isAllCaps = false
+            gravity = Gravity.CENTER
+            setTextColor(foreground)
+            setBackgroundTintList(ColorStateList.valueOf(background))
+            isFocusable = true
+            setOnClickListener { action() }
+        }
     }
 
     private fun clearContent() {
         content.removeAllViews()
     }
 
-    private fun showHome() {
-        clearContent()
-        val hero = TextView(this).apply {
-            text = "🦖  恐龙影视\\n\\n直播 · 电影 · 电视剧\\n\\n使用遥控器选择上方栏目开始观看"
-            textSize = 27f
-            setTextColor(Color.WHITE)
-            gravity = Gravity.CENTER
-            setBackgroundColor(panel)
-            setPadding(20, 25, 20, 25)
-        }
-        content.addView(hero, LinearLayout.LayoutParams(-1, 0, 1f))
-        status.text = "直播源与点播源已预设；首次使用请确认网络和源地址可访问。"
-        val row = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER }
-        addBigButton(row, "打开直播") { loadLive() }
-        addBigButton(row, "浏览点播") { loadVod("全部") }
-        content.addView(row)
-    }
-
-    private fun addBigButton(parent: LinearLayout, label: String, action: () -> Unit) {
-        val b = Button(this).apply {
-            text = label
-            textSize = 20f
-            isAllCaps = false
-            setTextColor(Color.WHITE)
-            setBackgroundTintList(android.content.res.ColorStateList.valueOf(teal))
-            setOnClickListener { action() }
-        }
-        val lp = LinearLayout.LayoutParams(0, 68, 1f)
-        lp.setMargins(12, 12, 12, 4)
-        parent.addView(b, lp)
-    }
-
     private fun loadLive() {
         clearContent()
-        status.text = "正在读取直播源……"
-        val loading = TextView(this).apply {
-            text = "正在读取 M3U / M3U8 频道列表…"
-            textSize = 22f
-            gravity = Gravity.CENTER
-            setTextColor(pale)
-        }
-        content.addView(loading, LinearLayout.LayoutParams(-1, -1))
+        status.text = "正在加载电视直播……"
+
+        content.addView(TextView(this).apply {
+            text = "电视直播"
+            textSize = 24f
+            typeface = Typeface.DEFAULT_BOLD
+            setTextColor(gold)
+            setPadding(8, 8, 8, 12)
+        })
+
+        val list = ListView(this)
+        list.setBackgroundColor(black)
+        content.addView(list, LinearLayout.LayoutParams(-1, 0, 1f))
+
         worker.execute {
             try {
                 val text = fetchText(liveSource)
-                val parsed = parseM3u(text)
+                val parsed = parseM3U(text)
+
                 runOnUiThread {
                     channels = parsed
-                    showChannels(parsed)
+
+                    if (parsed.isEmpty()) {
+                        status.text = "没有找到频道，请检查直播源"
+                        return@runOnUiThread
+                    }
+
+                    status.text = "已加载 ${parsed.size} 个频道"
+
+                    list.adapter = ArrayAdapter(
+                        this,
+                        android.R.layout.simple_list_item_1,
+                        parsed.map { it.name }
+                    )
+
+                    list.setOnItemClickListener { _, _, position, _ ->
+                        playVideo(parsed[position].url)
+                    }
                 }
             } catch (e: Exception) {
                 runOnUiThread {
-                    clearContent()
-                    status.text = "直播源读取失败"
-                    addMessage("无法读取直播源。请检查链接是否有效、是否需要授权，或在“设置”中修改地址。\\n\\n原因：${e.message ?: "未知错误"}")
+                    status.text = "直播加载失败，请检查网络或直播源"
                 }
             }
         }
     }
 
-    private fun showChannels(list: List<Channel>) {
-        clearContent()
-        status.text = "已读取 ${list.size} 个频道"
-        if (list.isEmpty()) {
-            addMessage("没有识别到 M3U 频道。请确认链接返回的是 M3U 文本，而不是网页或登录页面。")
-            return
-        }
-        val split = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL }
-        val categories = LinkedHashSet<String>()
-        categories.add("全部频道")
-        list.forEach { categories.add(it.group) }
-        val catBox = LinearLayout(this).apply {
-            orientation = LinearLayout.VERTICAL
-            setBackgroundColor(panel)
-        }
-        categories.forEach { group ->
-            val b = Button(this).apply {
-                text = group
-                isAllCaps = false
-                setTextColor(Color.WHITE)
-                setOnClickListener { showChannelRows(list.filter { group == "全部频道" || it.group == group }) }
+    private fun parseM3U(text: String): List<Channel> {
+        val result = mutableListOf<Channel>()
+        var name = "电视直播"
+        var group = "全部频道"
+
+        for (raw in text.lines()) {
+            val line = raw.trim()
+
+            if (line.startsWith("#EXTINF", true)) {
+                name = line.substringAfterLast(",", "电视直播").trim()
+
+                val match = Regex("""group-title="([^"]*)"""").find(line)
+                group = match?.groupValues?.get(1) ?: "全部频道"
+            } else if (
+                line.startsWith("http://") || line.startsWith("https://")
+            ) {
+                result.add(Channel(name, line, group))
+                name = "电视直播"
             }
-            catBox.addView(b)
         }
-        val scrollCat = ScrollView(this).apply { addView(catBox) }
-        split.addView(scrollCat, LinearLayout.LayoutParams(250, -1))
-        val rows = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
-        val scrollRows = ScrollView(this).apply { addView(rows) }
-        split.addView(scrollRows, LinearLayout.LayoutParams(0, -1, 1f))
-        content.addView(split, LinearLayout.LayoutParams(-1, -1))
-        channelRowsContainer = rows
-        showChannelRows(list)
+
+        return result
     }
 
-    private var channelRowsContainer: LinearLayout? = null
-
-    private fun showChannelRows(list: List<Channel>) {
-        val box = channelRowsContainer ?: return
-        box.removeAllViews()
-        list.forEachIndexed { index, ch ->
-            val b = Button(this).apply {
-                text = "${index + 1}.  ${ch.name}"
-                gravity = Gravity.CENTER_VERTICAL or Gravity.START
-                isAllCaps = false
-                textSize = 17f
-                setTextColor(Color.WHITE)
-                setBackgroundTintList(android.content.res.ColorStateList.valueOf(panel))
-                setOnClickListener { play(ch.url, ch.name) }
-            }
-            box.addView(b, LinearLayout.LayoutParams(-1, 58))
-        }
-    }
-
-    private fun play(url: String, title: String) {
+    private fun loadVod(category: String) {
         clearContent()
-        status.text = "正在播放：$title"
-        player?.release()
-        player = ExoPlayer.Builder(this).build()
-        playerView = PlayerView(this).apply {
-            player = this@MainActivity.player
-            useController = true
-            setShowBuffering(PlayerView.SHOW_BUFFERING_ALWAYS)
-        }
-        content.addView(playerView, LinearLayout.LayoutParams(-1, -1))
-        player?.setMediaItem(MediaItem.fromUri(url))
-        player?.prepare()
-        player?.playWhenReady = true
-        player?.addListener(object : Player.Listener {
-            override fun onPlayerError(error: androidx.media3.common.PlaybackException) {
-                runOnUiThread { status.text = "播放失败：${error.errorCodeName}（可能是源格式、网络或授权问题）" }
-            }
+        status.text = "正在检查点播资源……"
+
+        content.addView(TextView(this).apply {
+            text = if (category == "全部") "电影与点播" else category
+            textSize = 24f
+            typeface = Typeface.DEFAULT_BOLD
+            setTextColor(gold)
+            setPadding(8, 8, 8, 12)
         })
-    }
 
-    private fun loadVod(section: String) {
-        clearContent()
-        status.text = "正在读取点播接口……"
-        addMessage("点播源已设置为：$vodSource\\n\\n正在检查 CMS 数据格式。")
+        content.addView(TextView(this).apply {
+            text = "点播资源连接检查\n\n若无法连接，请进入资源设置检查点播地址。"
+            textSize = 16f
+            setTextColor(cream)
+            setPadding(16, 20, 16, 20)
+        })
+
         worker.execute {
             try {
-                val body = fetchText(vodSource)
-                val summary = inspectVod(body)
+                fetchText(vodSource)
                 runOnUiThread {
-                    clearContent()
-                    status.text = "点播源已读取，接口格式需要确认"
-                    addMessage("已取得点播源响应（${body.length} 字符）。\\n\\n$summary\\n\\n若这里显示的是一段 CMS API 地址或配置文件，下一步需要按实际 CMS 类型解析分类、海报和播放链接。")
+                    status.text = "点播源连接成功，但尚未解析影片目录"
                 }
             } catch (e: Exception) {
                 runOnUiThread {
-                    clearContent()
-                    status.text = "点播源读取失败"
-                    addMessage("无法读取点播源。请检查短链接是否有效、是否需要授权。\\n\\n原因：${e.message ?: "未知错误"}")
+                    status.text = "点播源连接失败，请检查地址或网络"
                 }
             }
         }
     }
 
-    private fun inspectVod(body: String): String {
-        val s = body.trim()
-        return when {
-            s.startsWith("http://") || s.startsWith("https://") ->
-                "检测结果：响应内容看起来是一个接口地址。\\n地址：$s"
-            s.startsWith("{") -> try {
-                val json = JSONObject(s)
-                "检测结果：JSON 接口。\\n顶层字段：" + json.keys().asSequence().take(20).joinToString(", ")
-            } catch (_: Exception) { "检测结果：类似 JSON，但解析失败。" }
-            s.startsWith("[") -> try {
-                val arr = JSONArray(s)
-                "检测结果：JSON 数组，共 ${arr.length()} 项。"
-            } catch (_: Exception) { "检测结果：类似 JSON 数组，但解析失败。" }
-            s.contains("#EXTM3U") -> "检测结果：这是 M3U 内容，不像点播 CMS 接口。"
-            else -> "响应开头：${s.take(500)}"
+    private fun playVideo(url: String) {
+        try {
+            clearContent()
+
+            playerView = PlayerView(this).apply {
+                useController = true
+            }
+
+            content.addView(playerView, LinearLayout.LayoutParams(-1, -1))
+
+            player?.release()
+            player = ExoPlayer.Builder(this).build().also {
+                playerView.player = it
+                it.setMediaItem(MediaItem.fromUri(url))
+                it.prepare()
+                it.playWhenReady = true
+            }
+
+            status.text = "正在播放"
+        } catch (e: Exception) {
+            status.text = "播放失败，请检查视频地址"
         }
     }
 
     private fun showSettings() {
         clearContent()
-        status.text = "资源设置"
-        val liveEdit = EditText(this).apply {
-            setText(liveSource); hint = "M3U 直播源网址"
-            setTextColor(Color.WHITE); setHintTextColor(Color.GRAY)
+
+        content.addView(TextView(this).apply {
+            text = "资源设置"
+            textSize = 26f
+            typeface = Typeface.DEFAULT_BOLD
+            setTextColor(gold)
+            setPadding(8, 8, 8, 18)
+        })
+
+        content.addView(TextView(this).apply {
+            text = "电视直播源地址"
+            setTextColor(cream)
+        })
+
+        val liveInput = EditText(this).apply {
+            setText(liveSource)
+            setTextColor(cream)
+            setHintTextColor(gray)
+            hint = "输入直播源网址"
             inputType = InputType.TYPE_TEXT_VARIATION_URI
             setSingleLine(true)
         }
-        val vodEdit = EditText(this).apply {
-            setText(vodSource); hint = "CMS 点播源网址"
-            setTextColor(Color.WHITE); setHintTextColor(Color.GRAY)
-            inputType = InputType.TYPE_TEXT_VARIATION_URI
-            setSingleLine(true)
-        }
-        content.addView(label("直播源网址"))
-        content.addView(liveEdit, LinearLayout.LayoutParams(-1, 58))
-        content.addView(label("点播源网址"))
-        content.addView(vodEdit, LinearLayout.LayoutParams(-1, 58))
-        val save = Button(this).apply {
-            text = "保存并测试直播源"
-            isAllCaps = false
-            setOnClickListener {
-                liveSource = liveEdit.text.toString().trim()
-                vodSource = vodEdit.text.toString().trim()
-                getPreferences(MODE_PRIVATE).edit()
-                    .putString("live", liveSource).putString("vod", vodSource).apply()
-                status.text = "地址已保存"
-                loadLive()
-            }
-        }
-        content.addView(save)
-        val note = TextView(this).apply {
-            text = "提示：此原型暂时只在当前安装设备保存地址。商业发行前应加入 HTTPS、授权验证、错误日志和隐私说明。"
-            setTextColor(Color.LTGRAY)
-            textSize = 15f
+        content.addView(liveInput)
+
+        content.addView(TextView(this).apply {
+            text = "点播资源地址"
+            setTextColor(cream)
             setPadding(0, 18, 0, 0)
-        }
-        content.addView(note)
-    }
+        })
 
-    private fun label(t: String) = TextView(this).apply {
-        text = t; textSize = 17f; setTextColor(teal); setPadding(2, 10, 2, 4)
-    }
-
-    private fun addMessage(text: String) {
-        val tv = TextView(this).apply {
-            this.text = text
-            textSize = 20f
-            setTextColor(pale)
-            gravity = Gravity.CENTER_VERTICAL
-            setPadding(20, 20, 20, 20)
+        val vodInput = EditText(this).apply {
+            setText(vodSource)
+            setTextColor(cream)
+            setHintTextColor(gray)
+            hint = "输入点播源网址"
+            inputType = InputType.TYPE_TEXT_VARIATION_URI
+            setSingleLine(true)
         }
-        content.addView(tv, LinearLayout.LayoutParams(-1, -1))
+        content.addView(vodInput)
+
+        content.addView(makeButton("保存设置", gold, Color.BLACK) {
+            liveSource = liveInput.text.toString().trim()
+            vodSource = vodInput.text.toString().trim()
+            status.text = "资源地址已保存至当前运行状态"
+            showHome()
+        }, LinearLayout.LayoutParams(-1, 54).apply {
+            setMargins(0, 24, 0, 0)
+        })
     }
 
     private fun fetchText(address: String): String {
-        val conn = (URL(address).openConnection() as HttpURLConnection).apply {
-            connectTimeout = 12000
-            readTimeout = 12000
-            instanceFollowRedirects = true
-            setRequestProperty("User-Agent", "KongLongYingshi/1.0 AndroidTV")
-        }
-        try {
-            val code = conn.responseCode
-            val stream = if (code in 200..299) conn.inputStream else conn.errorStream
-            val text = BufferedReader(InputStreamReader(stream, Charsets.UTF_8)).use { it.readText() }
-            if (code !in 200..299) throw IllegalStateException("HTTP $code")
-            return text
-        } finally {
-            conn.disconnect()
-        }
-    }
+        val connection = URL(address).openConnection() as HttpURLConnection
+        connection.connectTimeout = 15000
+        connection.readTimeout = 15000
+        connection.setRequestProperty("User-Agent", "Mozilla/5.0")
 
-    private fun parseM3u(text: String): List<Channel> {
-        val result = mutableListOf<Channel>()
-        var name = "未知频道"
-        var group = "未分类"
-        text.lineSequence().forEach { raw ->
-            val line = raw.trim()
-            if (line.startsWith("#EXTINF", true)) {
-                name = line.substringAfter(",", "").trim().ifBlank { "未知频道" }
-                group = Regex("""group-title=["']([^"']+)["']""", RegexOption.IGNORE_CASE)
-                    .find(line)?.groupValues?.getOrNull(1) ?: "未分类"
-            } else if (line.isNotBlank() && !line.startsWith("#") &&
-                (line.startsWith("http://", true) || line.startsWith("https://", true))) {
-                result.add(Channel(name, line, group))
-                name = "未知频道"
-                group = "未分类"
+        return try {
+            connection.inputStream.bufferedReader(Charsets.UTF_8).use {
+                it.readText()
             }
+        } finally {
+            connection.disconnect()
         }
-        return result
     }
 
     override fun onKeyDown(keyCode: Int, event: KeyEvent?): Boolean {
-        if (keyCode == KeyEvent.KEYCODE_BACK && player != null) {
-            player?.release()
-            player = null
+        if (keyCode == KeyEvent.KEYCODE_BACK) {
             showHome()
             return true
         }
@@ -387,6 +488,7 @@ class MainActivity : Activity() {
 
     override fun onDestroy() {
         player?.release()
+        player = null
         worker.shutdownNow()
         super.onDestroy()
     }
