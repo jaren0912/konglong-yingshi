@@ -1,11 +1,11 @@
 name: Build Konglong Yingshi APK
 
 'on':
-workflow_dispatch:
+  workflow_dispatch:
 
 jobs:
-test:
-runs-on: ubuntu-latest
-steps:
-- name: Test workflow
-run: echo "Workflow syntax is working"
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Test workflow
+        run: echo "Workflow syntax is working"
