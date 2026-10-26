@@ -1,3 +1,6 @@
-name: Build Konglong Yingshi APK
-'on': {workflow_dispatch: null}
-jobs: {test: {runs-on: ubuntu-latest, steps: [{name: Test workflow, run: 'echo "Workflow syntax is working"'}]}}
+{"name":"Build Konglong Yingshi APK","on":
+{"workflow_dispatch":null},"jobs":
+{"test":
+{"runs-on":"ubuntu-latest","steps":
+[{"name":"Test workflow","run":"echo
+Workflow syntax is working"}]}}}
