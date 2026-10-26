@@ -37,14 +37,10 @@ steps:
       mkdir -p extracted
       unzip -q "$ZIP_FILE" -d extracted
 
-      PROJECT_DIR=$(find extracted -name settings.gradle -type f -printf '%h\n' | head -n 1)
+      PROJECT_DIR=$(find extracted -name settings.gradle -o -name settings.gradle.kts -type f -printf '%h\n' | head -n 1)
 
       if [ -z "$PROJECT_DIR" ]; then
-        PROJECT_DIR=$(find extracted -name settings.gradle.kts -type f -printf '%h\n' | head -n 1)
-      fi
-
-      if [ -z "$PROJECT_DIR" ]; then
-        echo "ERROR: Android project not found"
+        echo "ERROR: Android project settings file not found"
         exit 1
       fi
 
@@ -101,24 +97,6 @@ steps:
               count=1
           )
 
-      app_match = re.search(r'<application\b[^>]*>', mtext)
-
-      if not app_match:
-          raise SystemExit("ERROR: Application tag not found")
-
-      app_tag = app_match.group(0)
-
-      if 'android:icon=' not in app_tag:
-          new_tag = app_tag[:-1] + ' android:icon="@drawable/konglong_logo">'
-          mtext = mtext[:app_match.start()] + new_tag + mtext[app_match.end():]
-
-      app_match = re.search(r'<application\b[^>]*>', mtext)
-      app_tag = app_match.group(0)
-
-      if 'android:roundIcon=' not in app_tag:
-          new_tag = app_tag[:-1] + ' android:roundIcon="@drawable/konglong_logo">'
-          mtext = mtext[:app_match.start()] + new_tag + mtext[app_match.end():]
-
       manifest.write_text(mtext, encoding="utf-8")
 
       gradle_file = next((p for p in gradle_candidates if p.exists()), None)
@@ -135,69 +113,32 @@ steps:
           "androidx.media3:media3-ui:1.5.1",
       ]
 
+      match = re.search(r'\bdependencies\s*\{', text)
+
+      if not match:
+          raise SystemExit("ERROR: dependencies block not found")
+
+      additions = []
+
       for dependency in dependencies:
-          if dependency in text:
-              continue
+          if dependency not in text:
+              if is_kts:
+                  additions.append(f'    implementation("{dependency}")')
+              else:
+                  additions.append(f'    implementation "{dependency}"')
 
-          match = re.search(r'\bdependencies\s*\{', text)
-
-          if not match:
-              raise SystemExit("ERROR: dependencies block not found")
-
-          line = (
-              f'    implementation("{dependency}")'
-              if is_kts
-              else f'    implementation "{dependency}"'
-          )
-
-          text = text[:match.end()] + "\n" + line + text[match.end():]
-
-      if "compileOptions" not in text and "defaultConfig {" in text:
-          if is_kts:
-              block = """    compileOptions {
-              sourceCompatibility = JavaVersion.VERSION_17
-              targetCompatibility = JavaVersion.VERSION_17
-          }
-
-          """
-          else:
-              block = """    compileOptions {
-              sourceCompatibility JavaVersion.VERSION_17
-              targetCompatibility JavaVersion.VERSION_17
-          }
-
-          """
-
-          text = text.replace("defaultConfig {", block + "defaultConfig {", 1)
-
-      if not is_kts and "kotlinOptions" not in text and "defaultConfig {" in text:
-          text = text.replace(
-              "defaultConfig {",
-              """kotlinOptions {
-              jvmTarget = '17'
-          }
-
-          defaultConfig {""",
-              1
-          )
-
-      if is_kts and "kotlinOptions" not in text and "compilerOptions" not in text:
-          text += """
-
-      tasks.withType<org.jetbrains.kotlin.gradle.tasks.KotlinCompile>().configureEach {
-          kotlinOptions {
-              jvmTarget = "17"
-          }
-      }
-      """
+      if additions:
+          text = text[:match.end()] + "\n" + "\n".join(additions) + text[match.end():]
 
       gradle_file.write_text(text, encoding="utf-8")
-      print("Manifest and MPD dependencies configured")
+      print("Manifest and Media3 dependencies configured")
       PY
 
   - name: Build APK
     shell: bash
-    run: gradle -p "$PROJECT_DIR" assembleDebug
+    run: |
+      set -e
+      gradle -p "$PROJECT_DIR" assembleDebug
 
   - name: Locate APK
     shell: bash
