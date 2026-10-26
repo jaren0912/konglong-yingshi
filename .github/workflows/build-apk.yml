@@ -27,11 +27,10 @@ steps:
     shell: bash
     run: |
       set -e
-
       ZIP_FILE=$(find . -maxdepth 1 -type f -name '*.zip' | head -n 1)
 
       if [ -z "$ZIP_FILE" ]; then
-        echo "ERROR: Android project ZIP not found in repository root"
+        echo "ERROR: Android project ZIP not found"
         exit 1
       fi
 
@@ -45,66 +44,64 @@ steps:
       fi
 
       if [ -z "$PROJECT_DIR" ]; then
-        echo "ERROR: Could not find settings.gradle or settings.gradle.kts"
+        echo "ERROR: Android project not found"
         exit 1
       fi
 
       echo "PROJECT_DIR=$PROJECT_DIR" >> "$GITHUB_ENV"
-      echo "Found Android project: $PROJECT_DIR"
+      echo "Found project: $PROJECT_DIR"
 
   - name: Install MainActivity
     shell: bash
     run: |
       set -e
-
       SOURCE="./MainActivity.kt"
       TARGET="$PROJECT_DIR/app/src/main/java/com/konglong/yingshi/MainActivity.kt"
 
       if [ ! -f "$SOURCE" ]; then
-        echo "ERROR: MainActivity.kt is missing from repository root"
+        echo "ERROR: MainActivity.kt missing from repository root"
         exit 1
       fi
 
       if [ ! -f "$TARGET" ]; then
         echo "ERROR: MainActivity destination not found: $TARGET"
-        echo "Check the package name and Android project structure."
         exit 1
       fi
 
       cp "$SOURCE" "$TARGET"
-      echo "MainActivity.kt installed"
 
-  - name: Configure Android TV manifest
+  - name: Configure manifest and MPD dependencies
     shell: bash
     run: |
-      python3 - "$PROJECT_DIR/app/src/main/AndroidManifest.xml" <<'PY'
+      python3 - "$PROJECT_DIR/app/src/main/AndroidManifest.xml" "$PROJECT_DIR/app/build.gradle" "$PROJECT_DIR/app/build.gradle.kts" <<'PY'
       from pathlib import Path
       import re
       import sys
 
-      path = Path(sys.argv[1])
+      manifest = Path(sys.argv[1])
+      gradle_candidates = [Path(sys.argv[2]), Path(sys.argv[3])]
 
-      if not path.exists():
+      if not manifest.exists():
           raise SystemExit("ERROR: AndroidManifest.xml not found")
 
-      text = path.read_text(encoding="utf-8")
+      mtext = manifest.read_text(encoding="utf-8")
 
-      if 'xmlns:android=' not in text:
-          text = text.replace(
+      if 'xmlns:android=' not in mtext:
+          mtext = mtext.replace(
               '<manifest',
               '<manifest xmlns:android="http://schemas.android.com/apk/res/android"',
               1
           )
 
-      if 'android.permission.INTERNET' not in text:
-          text = re.sub(
+      if 'android.permission.INTERNET' not in mtext:
+          mtext = re.sub(
               r'(<manifest\b[^>]*>)',
               r'\1\n    <uses-permission android:name="android.permission.INTERNET" />',
-              text,
+              mtext,
               count=1
           )
 
-      app_match = re.search(r'<application\b[^>]*>', text)
+      app_match = re.search(r'<application\b[^>]*>', mtext)
 
       if not app_match:
           raise SystemExit("ERROR: Application tag not found")
@@ -113,71 +110,24 @@ steps:
 
       if 'android:icon=' not in app_tag:
           new_tag = app_tag[:-1] + ' android:icon="@drawable/konglong_logo">'
-          text = text[:app_match.start()] + new_tag + text[app_match.end():]
+          mtext = mtext[:app_match.start()] + new_tag + mtext[app_match.end():]
 
-      app_match = re.search(r'<application\b[^>]*>', text)
+      app_match = re.search(r'<application\b[^>]*>', mtext)
       app_tag = app_match.group(0)
 
       if 'android:roundIcon=' not in app_tag:
           new_tag = app_tag[:-1] + ' android:roundIcon="@drawable/konglong_logo">'
-          text = text[:app_match.start()] + new_tag + text[app_match.end():]
+          mtext = mtext[:app_match.start()] + new_tag + mtext[app_match.end():]
 
-      if 'android.software.leanback' not in text:
-          text = re.sub(
-              r'(<application\b)',
-              '<uses-feature android:name="android.software.leanback" android:required="false" />\n    \\1',
-              text,
-              count=1
-          )
+      manifest.write_text(mtext, encoding="utf-8")
 
-      if 'android.hardware.touchscreen' not in text:
-          text = re.sub(
-              r'(<application\b)',
-              '<uses-feature android:name="android.hardware.touchscreen" android:required="false" />\n    \\1',
-              text,
-              count=1
-          )
+      gradle_file = next((p for p in gradle_candidates if p.exists()), None)
 
-      if 'android.intent.category.LEANBACK_LAUNCHER' not in text:
-          launcher_pattern = (
-              r'<intent-filter\b[^>]*>'
-              r'(?:(?!</intent-filter>).)*?'
-              r'<category\s+android:name="android\.intent\.category\.LAUNCHER"\s*/>'
-              r'(?:(?!</intent-filter>).)*?'
-              r'</intent-filter>'
-          )
-
-          match = re.search(launcher_pattern, text, re.DOTALL)
-
-          if match:
-              block = match.group(0)
-              block = block.replace(
-                  '</intent-filter>',
-                  '<category android:name="android.intent.category.LEANBACK_LAUNCHER" />\n            </intent-filter>',
-                  1
-              )
-              text = text[:match.start()] + block + text[match.end():]
-
-      path.write_text(text, encoding="utf-8")
-      print("Android manifest configured")
-      PY
-
-  - name: Configure Java, Kotlin and MPD dependencies
-    shell: bash
-    run: |
-      python3 - "$PROJECT_DIR/app/build.gradle" "$PROJECT_DIR/app/build.gradle.kts" <<'PY'
-      from pathlib import Path
-      import re
-      import sys
-
-      candidates = [Path(sys.argv[1]), Path(sys.argv[2])]
-      path = next((p for p in candidates if p.exists()), None)
-
-      if path is None:
+      if gradle_file is None:
           raise SystemExit("ERROR: App Gradle file not found")
 
-      text = path.read_text(encoding="utf-8")
-      is_kts = path.suffix == ".kts"
+      text = gradle_file.read_text(encoding="utf-8")
+      is_kts = gradle_file.suffix == ".kts"
 
       dependencies = [
           "androidx.media3:media3-exoplayer:1.5.1",
@@ -192,7 +142,7 @@ steps:
           match = re.search(r'\bdependencies\s*\{', text)
 
           if not match:
-              raise SystemExit("ERROR: dependencies block not found in app Gradle file")
+              raise SystemExit("ERROR: dependencies block not found")
 
           line = (
               f'    implementation("{dependency}")'
@@ -202,37 +152,34 @@ steps:
 
           text = text[:match.end()] + "\n" + line + text[match.end():]
 
-      if "compileOptions" not in text:
-          block = (
-              """    compileOptions {
+      if "compileOptions" not in text and "defaultConfig {" in text:
+          if is_kts:
+              block = """    compileOptions {
               sourceCompatibility = JavaVersion.VERSION_17
               targetCompatibility = JavaVersion.VERSION_17
           }
 
           """
-              if is_kts
-              else """    compileOptions {
+          else:
+              block = """    compileOptions {
               sourceCompatibility JavaVersion.VERSION_17
               targetCompatibility JavaVersion.VERSION_17
           }
 
           """
-          )
 
-          if "defaultConfig {" in text:
-              text = text.replace("defaultConfig {", block + "defaultConfig {", 1)
+          text = text.replace("defaultConfig {", block + "defaultConfig {", 1)
 
-      if not is_kts and "kotlinOptions" not in text:
-          if "defaultConfig {" in text:
-              text = text.replace(
-                  "defaultConfig {",
-                  """kotlinOptions {
+      if not is_kts and "kotlinOptions" not in text and "defaultConfig {" in text:
+          text = text.replace(
+              "defaultConfig {",
+              """kotlinOptions {
               jvmTarget = '17'
           }
 
           defaultConfig {""",
-                  1
-              )
+              1
+          )
 
       if is_kts and "kotlinOptions" not in text and "compilerOptions" not in text:
           text += """
@@ -244,22 +191,18 @@ steps:
       }
       """
 
-      path.write_text(text, encoding="utf-8")
-      print("Configured Gradle file:", path)
-      print("Media3 ExoPlayer, DASH and UI dependencies added")
+      gradle_file.write_text(text, encoding="utf-8")
+      print("Manifest and MPD dependencies configured")
       PY
 
   - name: Build APK
     shell: bash
-    run: |
-      set -e
-      gradle -p "$PROJECT_DIR" assembleDebug
+    run: gradle -p "$PROJECT_DIR" assembleDebug
 
   - name: Locate APK
     shell: bash
     run: |
       set -e
-
       APK=$(find "$PROJECT_DIR" -path '*/build/outputs/apk/debug/*.apk' -type f | head -n 1)
 
       if [ -z "$APK" ]; then
@@ -268,7 +211,7 @@ steps:
       fi
 
       cp "$APK" app-debug.apk
-      echo "APK ready: app-debug.apk"
+      echo "APK ready"
 
   - name: Upload APK
     uses: actions/upload-artifact@v4
