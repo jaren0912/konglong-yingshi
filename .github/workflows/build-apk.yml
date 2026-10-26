@@ -1,6 +1,6 @@
 name: Build Konglong Yingshi APK
 
-on:
+'on':
 push:
 workflow_dispatch:
 
