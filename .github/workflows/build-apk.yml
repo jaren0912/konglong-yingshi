@@ -39,6 +39,30 @@ jobs:
           fi
           echo "PROJECT_DIR=$PROJECT_DIR" >> "$GITHUB_ENV"
 
+      - name: Set Dinosaur App Icon
+        run: |
+          python3 - "$PROJECT_DIR/app/src/main/AndroidManifest.xml" <<'PY'
+          from pathlib import Path
+          import sys
+          import re
+
+          p = Path(sys.argv[1])
+          s = p.read_text()
+
+          if '@drawable/konglong_logo' not in s:
+              s, count = re.subn(
+                  r'<application\b',
+                  '<application\n        android:icon="@drawable/konglong_logo"\n        android:roundIcon="@drawable/konglong_logo"',
+                  s,
+                  count=1
+              )
+              if count != 1:
+                  raise SystemExit("Cannot find application tag")
+              p.write_text(s)
+
+          print("Dinosaur app icon configured")
+          PY
+
       - name: Fix Java and Kotlin versions
         run: |
           python3 - "$PROJECT_DIR/app/build.gradle" <<'PY'
