@@ -30,14 +30,35 @@ jobs:
             echo "Project ZIP not found"
             exit 1
           fi
-          mkdir extracted
+
+          mkdir -p extracted
           unzip -q "$ZIP_FILE" -d extracted
+
           PROJECT_DIR=$(find extracted -name settings.gradle -type f -printf '%h\n' | head -n 1)
           if [ -z "$PROJECT_DIR" ]; then
             echo "Android project not found"
             exit 1
           fi
+
           echo "PROJECT_DIR=$PROJECT_DIR" >> "$GITHUB_ENV"
+
+      - name: Use Uploaded MainActivity
+        run: |
+          SOURCE="./MainActivity.kt"
+          TARGET="$PROJECT_DIR/app/src/main/java/com/konglong/yingshi/MainActivity.kt"
+
+          if [ ! -f "$SOURCE" ]; then
+            echo "MainActivity.kt not found in repository root"
+            exit 1
+          fi
+
+          if [ ! -f "$TARGET" ]; then
+            echo "Original MainActivity.kt target not found"
+            exit 1
+          fi
+
+          cp "$SOURCE" "$TARGET"
+          echo "Uploaded MainActivity.kt copied into Android project"
 
       - name: Set Dinosaur App Icon
         run: |
@@ -98,10 +119,12 @@ jobs:
       - name: Find APK
         run: |
           APK=$(find "$PROJECT_DIR" -path '*/build/outputs/apk/debug/*.apk' -type f | head -n 1)
+
           if [ -z "$APK" ]; then
             echo "APK not found"
             exit 1
           fi
+
           cp "$APK" app-debug.apk
 
       - name: Upload APK
